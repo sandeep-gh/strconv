@@ -115,6 +115,24 @@ class Strconv(object):
             raise KeyError('no converter for type "{0}"'.format(name))
         return self.converters[name]
 
+    def convert_with_type(self, s, include_type=False, ct = None):
+        if ct is None:
+            if include_type:
+                return s, None
+            return s            
+        if isinstance(s, str):
+            func = self.converters[ct]
+            try:
+                v = func(s)
+                if include_type:
+                    return v, ct
+                return v
+            except ValueError:
+                pass
+        if include_type:
+            return s, None
+        return s
+    
     def convert(self, s, include_type=False):
         if isinstance(s, str):
             for t in self._order:
@@ -134,6 +152,10 @@ class Strconv(object):
         for s in iterable:
             yield self.convert(s, include_type=include_type)
 
+    def convert_series_with_type(self, iterable, include_type=False, types=None):
+        for s, t in zip(iterable, types):
+            yield self.convert_with_type(s, include_type=include_type, ct=t)
+            
     def convert_matrix(self, matrix, include_type=False):
         for r in matrix:
             yield tuple(self.convert(s, include_type=include_type) for s in r)
@@ -309,6 +331,7 @@ get_converter = default_strconv.get_converter
 
 convert = default_strconv.convert
 convert_series = default_strconv.convert_series
+convert_series_with_type = default_strconv.convert_series_with_type
 convert_matrix = default_strconv.convert_matrix
 
 infer = default_strconv.infer
