@@ -269,6 +269,21 @@ def convert_bool(s):
         return False
     raise ValueError
 
+def convert_percent(s):
+    if len(s) == 0:
+        return ValueError
+    if s[0] == "+":
+        if s[-1] == "%":
+            return float(s[1:-1])
+        else:
+            return float(s[1:])
+    else:
+        if s[-1] == "%":
+            return float(s[0:-1])
+        else:
+            return float(s)
+
+
 
 def convert_datetime(s, date_formats=DATE_FORMATS, time_formats=TIME_FORMATS):
     if sys.version < '3.5':
@@ -320,6 +335,7 @@ default_strconv = Strconv(converters=[
     ('int', convert_int),
     ('float', convert_float),
     ('bool', convert_bool),
+    ('percent', convert_percent), 
     ('time', convert_time),
     ('datetime', convert_datetime),
     ('date', convert_date),
