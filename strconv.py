@@ -4,13 +4,16 @@
 import re
 import sys
 from collections import Counter
-from datetime import datetime
-
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
+from intervals import IntInterval, DateInterval
+from emptystring import EmptyString
 __version__ = '0.4.2'
 
 
 class TypeInfo(object):
     "Sampling and frequency of a type for a sample of values."
+
     def __init__(self, name, size=None, total=None):
         self.name = name
         self.count = 0
@@ -41,6 +44,7 @@ class TypeInfo(object):
 
 class Types(object):
     "Type information for a sample of values."
+
     def __init__(self, size=None, total=None):
         self.size = size
         self.total = None
@@ -115,11 +119,15 @@ class Strconv(object):
             raise KeyError('no converter for type "{0}"'.format(name))
         return self.converters[name]
 
-    def convert_with_type(self, s, include_type=False, ct = None):
+    def convert_with_type(self, s, include_type=False, ct=None):
+        if len(s) == 0:
+            return "EmptyString", "EmptyString"
+
         if ct is None:
             if include_type:
                 return s, None
-            return s            
+            return s
+
         if isinstance(s, str):
             func = self.converters[ct]
             try:
@@ -132,7 +140,7 @@ class Strconv(object):
         if include_type:
             return s, None
         return s
-    
+
     def convert(self, s, include_type=False):
         if isinstance(s, str):
             for t in self._order:
@@ -155,7 +163,7 @@ class Strconv(object):
     def convert_series_with_type(self, iterable, include_type=False, types=None):
         for s, t in zip(iterable, types):
             yield self.convert_with_type(s, include_type=include_type, ct=t)
-            
+
     def convert_matrix(self, matrix, include_type=False):
         for r in matrix:
             yield tuple(self.convert(s, include_type=include_type) for s in r)
@@ -254,6 +262,12 @@ true_re = re.compile(r'^(t(rue)?|yes)$', re.I)
 false_re = re.compile(r'^(f(alse)?|no)$', re.I)
 
 
+def convert_emptystring(s):
+    if len(s) == 0:
+        return EmptyString
+    raise ValueError
+
+
 def convert_int(s):
     return int(s)
 
@@ -269,9 +283,10 @@ def convert_bool(s):
         return False
     raise ValueError
 
+
 def convert_percent(s):
     if len(s) == 0:
-        return ValueError
+        raise ValueError
     if s[0] == "+":
         if s[-1] == "%":
             return float(s[1:-1])
@@ -283,6 +298,42 @@ def convert_percent(s):
         else:
             return float(s)
 
+
+def convert_intrange(s):
+    if len(s) == 0:
+        raise ValueError
+    ints = s.split("-")
+    if len(ints) != 2:
+        raise ValueError
+
+    s1 = int(ints[0])
+    s2 = int(ints[1])
+    try:
+        v = IntInterval([s1, s2])
+        return v
+    except:
+        raise ValueError
+
+
+def convert_yearrange(s):
+    if len(s) == 0:
+        raise ValueError
+    ints = s.split("-")
+    if len(ints) != 2:
+        raise ValueError
+
+    s0 = datetime.strptime(ints[0], "%Y").date()
+    try:
+        s1 = datetime.strptime(ints[1], "%Y").date()
+        return DateInterval([s0, s1])
+    except:
+        i1 = int(ints[1])
+        if 0 < i1 < 100:
+            delta = i1 - s0.year % 100
+            s1 = s0 + relativedelta(years=delta)
+            return DateInterval([s0, s1])
+
+    raise ValueError
 
 
 def convert_datetime(s, date_formats=DATE_FORMATS, time_formats=TIME_FORMATS):
@@ -332,13 +383,17 @@ def convert_time(s, time_formats=TIME_FORMATS):
 
 # Initialize default instance and make accessible at the module level
 default_strconv = Strconv(converters=[
+    ('EmptyString', convert_emptystring),
     ('int', convert_int),
     ('float', convert_float),
     ('bool', convert_bool),
-    ('percent', convert_percent), 
+    ('percent', convert_percent),
     ('time', convert_time),
     ('datetime', convert_datetime),
     ('date', convert_date),
+    ('IntInterval', convert_intrange),
+    ('DateInterval', convert_yearrange)
+
 ])
 
 register_converter = default_strconv.register_converter
@@ -346,6 +401,7 @@ unregister_converter = default_strconv.unregister_converter
 get_converter = default_strconv.get_converter
 
 convert = default_strconv.convert
+convert_with_type = default_strconv.convert_with_type
 convert_series = default_strconv.convert_series
 convert_series_with_type = default_strconv.convert_series_with_type
 convert_matrix = default_strconv.convert_matrix
