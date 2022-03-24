@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from intervals import IntInterval, DateInterval
-from emptystring import EmptyString
+from emptystring.emptystring import EmptyString
 __version__ = '0.4.2'
 
 
